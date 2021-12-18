@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Reflection;
 using System.Collections.Generic;
+using System.ComponentModel;
 using UnityEngine;
+using UnityEngine.Serialization;
 using HarmonyLib;
 using BepInEx;
 using BepInEx.Configuration;
@@ -9,6 +11,7 @@ using PolyTechFramework;
 using System.Linq;
 using Poly.Physics.Solver;
 using Poly.Math;
+using Component = UnityEngine.Component;
 
 namespace ControllerMod
 {
@@ -17,45 +20,134 @@ namespace ControllerMod
     [BepInDependency(PolyTechMain.PluginGuid, BepInDependency.DependencyFlags.HardDependency)]
     public class ControllerMain : PolyTechMod
     {
-
         public const string pluginGuid = "polytech.vehiclecontrollermod";
 
         public const string pluginName = "Vehicle Controller Mod";
 
-        public const string pluginVerson = "1.0.0";
+        public const string pluginVerson = "1.1.0";
+
 
         public ConfigDefinition modEnableDef = new ConfigDefinition(pluginName, "Enable/Disable Mod");
-        public ConfigDefinition ChangeTargetDef = new ConfigDefinition(pluginName, "Change Target");
-        public ConfigDefinition DriveDef = new ConfigDefinition(pluginName, "Drive");
-        public ConfigDefinition DriveBackDef = new ConfigDefinition(pluginName, "Drive Backwards");
-        public ConfigDefinition JumpDef = new ConfigDefinition(pluginName, "Jump");
-        public ConfigDefinition FlipDef = new ConfigDefinition(pluginName, "Flip");
-        public ConfigDefinition JumpStrengthDef = new ConfigDefinition(pluginName, "Jump Strength");
-        public ConfigDefinition JumpModeDef = new ConfigDefinition(pluginName, "Jump Mode");
+
+        public const string VehicleSettingsHeader = "Vehicle Control";
+        public ConfigDefinition VehicleControlDef = new ConfigDefinition(VehicleSettingsHeader, "Enable/Disable");
+        public ConfigDefinition ChangeTargetDef = new ConfigDefinition(VehicleSettingsHeader, "Change Target");
+        public ConfigDefinition DriveTypeDef = new ConfigDefinition(VehicleSettingsHeader, "Driving Mode");
+        public ConfigDefinition DriveDef = new ConfigDefinition(VehicleSettingsHeader, "Drive");
+        public ConfigDefinition DriveBackDef = new ConfigDefinition(VehicleSettingsHeader, "Drive Backwards");
+        public ConfigDefinition BrakesDef = new ConfigDefinition(VehicleSettingsHeader, "Brakes");
+        public ConfigDefinition BrakesEnabledDef = new ConfigDefinition(VehicleSettingsHeader, "Brakes Enabled");
+        public ConfigDefinition BrakesStrengthDef = new ConfigDefinition(VehicleSettingsHeader, "Brakes Intensity");
+        public ConfigDefinition FlipDef = new ConfigDefinition(VehicleSettingsHeader, "Flip");
+        public ConfigDefinition JumpDef = new ConfigDefinition(VehicleSettingsHeader, "Jump");
+        public ConfigDefinition JumpEnabledDef = new ConfigDefinition(VehicleSettingsHeader, "Jump Enabled");
+        public ConfigDefinition AirJumpDef = new ConfigDefinition(VehicleSettingsHeader, "Mid Air Jump");
+        public ConfigDefinition JumpStrengthDef = new ConfigDefinition(VehicleSettingsHeader, "Jump Strength");
+        public ConfigDefinition JumpModeDef = new ConfigDefinition(VehicleSettingsHeader, "Jump Mode");
+        public ConfigDefinition TorqueEnabledDef = new ConfigDefinition(VehicleSettingsHeader, "Torque Enabled");
+        public ConfigDefinition TorqueStrengthDef = new ConfigDefinition(VehicleSettingsHeader, "Torque Strength");
+
+        public const string PhaseSettingsHeader = "Phase Control";
+        public ConfigDefinition PhaseControlDef = new ConfigDefinition(PhaseSettingsHeader, "Enable/Disable");
+        public ConfigDefinition StartPhaseDef = new ConfigDefinition(PhaseSettingsHeader, "Start Phase");
+
+        public const string HydroSettingsHeader = "Hydraulic Control";
+        public ConfigDefinition HydroControlDef = new ConfigDefinition(HydroSettingsHeader, "Enable/Disable");
+        public ConfigDefinition HydroTypeDef = new ConfigDefinition(HydroSettingsHeader, "Hydraulic Control Type");
+        public ConfigDefinition ActivateHydroDef = new ConfigDefinition(HydroSettingsHeader, "Activate Hydraulics");
+
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         public ConfigEntry<bool> mEnabled;
 
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ConfigEntry<bool> mVehicleControl;
+
         public ConfigEntry<KeyboardShortcut> mChangeTarget;
-        public bool ChangeTargetDown = false;
         public Vehicle Target;
         public PolyPhysics.Rigidbody[] TargetBodies;
         public PolyPhysics.Rigidbody[] TargetChassis;
         public List<PolyPhysics.Rigidbody> AllBodies;
         public int TargetIndex = 0;
 
+        public ConfigEntry<DriveType> mDriveType;
         public ConfigEntry<KeyboardShortcut> mDrive;
         public bool DriveDown = false;
         public ConfigEntry<KeyboardShortcut> mDriveBack;
         public bool DriveBackDown = false;
 
-        public ConfigEntry<KeyboardShortcut> mJump;
-        public bool AddJump = false;
+        //public ConfigEntry<KeyboardShortcut> mBrakes;
+        //public ConfigEntry<bool> mBrakesEnabled;
+        //public ConfigEntry<float> mBrakesStrength;
+        //public float TargetBrakingMultiplier = 0f;
+        //public bool BrakesDown = false;
 
         public ConfigEntry<KeyboardShortcut> mFlip;
+        public List<Vehicle> FlippedVehicles = new List<Vehicle>();
 
+        public ConfigEntry<bool> mJumpEnabled;
+        public ConfigEntry<bool> mAirJump;
+        public ConfigEntry<KeyboardShortcut> mJump;
+        public bool AddJump = false;
         public ConfigEntry<float> mJumpStrength;
-
         public ConfigEntry<JumpMode> mJumpMode;
+        //public float LastDistance = 0f;
+        //public float EvenMoreLastDistance = 0f;
+
+        public ConfigEntry<bool> mTorqueEnabled;
+        public ConfigEntry<float> mTorqueStrength;
+
+        public PolyPhysics.WorldCollisionOutput CollisionsOutput;
+        public FastList<PolyPhysics.CollisionInfo> infos = new FastList<PolyPhysics.CollisionInfo>();
+        public FastList<Poly.Physics.CollisionEvent> events = new FastList<Poly.Physics.CollisionEvent>();
+
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ConfigEntry<bool> mPhaseControl;
+
+        public ConfigEntry<KeyboardShortcut> mStartPhase;
+        public bool PhaseTyping = false;
+        public int SelectedPhase = 0;
+        public string[] StageLabelLookupTable = new string[]
+        {
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "H",
+            "I",
+            "J",
+            "K",
+            "L",
+            "M",
+            "N",
+            "O",
+            "P",
+            "Q",
+            "R",
+            "S",
+            "T",
+            "U",
+            "V",
+            "W",
+            "X",
+            "Y",
+            "Z"
+        };
+
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ConfigEntry<bool> mHydroControl;
+
+        //public ConfigEntry<HydroType> mHydroType;
+
+        public ConfigEntry<KeyboardShortcut> mActivateHydro;
+
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         public static ControllerMain instance;
 
@@ -65,46 +157,106 @@ namespace ControllerMod
 
         public bool LoadBodies = false;
 
+        public const int SettingsVersion = 1;
+
+        public enum DriveType
+        {
+            WithOrientation,
+            Directional
+        }
+
         public enum JumpMode
         {
             AlwaysUp,
             Directional
         }
 
+        public enum HydroType
+        {
+            [Description("Only when button is pressed")]
+            Button,
+            [Description("Only when clicked")]
+            Clickable,
+            [Description("When clicked or button is pressed")]
+            ButtonAndClickable
+        }
+
         void Awake()
         {
             if (instance == null) instance = this;
             repositoryUrl = "https://github.com/Bram2323/PB-Vehicle-Controller-Mod/";
-            authors = new string[] { "Bram2323" };
+            authors = new string[] { "Bram2323", "Masonator" };
 
             int order = 0;
 
-            Config.Bind(modEnableDef, true, new ConfigDescription("Controls if the mod should be enabled or disabled", null, new ConfigurationManagerAttributes { Order = order }));
-            mEnabled = (ConfigEntry<bool>)Config[modEnableDef];
+            mEnabled = Config.Bind(modEnableDef, true, new ConfigDescription("Controls if the mod should be enabled or disabled", null, new ConfigurationManagerAttributes { Order = order }));
             mEnabled.SettingChanged += onEnableDisable;
+            order--;
+
+
+
+            mVehicleControl = Config.Bind(VehicleControlDef, true, new ConfigDescription("If your able to control vehicles", null, new ConfigurationManagerAttributes { Order = order }));
             order--;
 
             mChangeTarget = Config.Bind(ChangeTargetDef, new KeyboardShortcut(KeyCode.Tab), new ConfigDescription("What button changes the selected vehicle", null, new ConfigurationManagerAttributes { Order = order }));
             order--;
 
-            mDrive = Config.Bind(DriveDef, new KeyboardShortcut(KeyCode.M), new ConfigDescription("What button makes the car drive", null, new ConfigurationManagerAttributes { Order = order }));
+            mDriveType = Config.Bind(DriveTypeDef, DriveType.WithOrientation, new ConfigDescription("If \"With Orientation\", forward and reverse depend on which way the vehicle is flipped.\nIf \"Directional\", forward is always to the right and reverse is always to the left", null, new ConfigurationManagerAttributes { Order = order }));
             order--;
 
-            mDriveBack = Config.Bind(DriveBackDef, new KeyboardShortcut(KeyCode.N), new ConfigDescription("What button makes the car drive backwards", null, new ConfigurationManagerAttributes { Order = order }));
+            mDrive = Config.Bind(DriveDef, new KeyboardShortcut(KeyCode.D), new ConfigDescription("Drives forward if driving type is set to \"With Orientation\".\nDrives to the right if driving type is set to \"Directional\"", null, new ConfigurationManagerAttributes { Order = order }));
             order--;
 
-            mJump = Config.Bind(JumpDef, new KeyboardShortcut(KeyCode.B), new ConfigDescription("What button makes the car jump", null, new ConfigurationManagerAttributes { Order = order }));
+            mDriveBack = Config.Bind(DriveBackDef, new KeyboardShortcut(KeyCode.A), new ConfigDescription("Drives in reverse if driving type is set to \"With Orientation\".\nDrives to the left if driving type is set to \"Directional\"", null, new ConfigurationManagerAttributes { Order = order }));
             order--;
 
-            mFlip = Config.Bind(FlipDef, new KeyboardShortcut(KeyCode.V), new ConfigDescription("What button makes the car flip", null, new ConfigurationManagerAttributes { Order = order }));
+            //mBrakes = Config.Bind(BrakesDef, new KeyboardShortcut(KeyCode.LeftShift), new ConfigDescription("Makes the car brake", null, new ConfigurationManagerAttributes { Order = order }));
+            //order--;
+
+            //mBrakesEnabled = Config.Bind(BrakesEnabledDef, true, new ConfigDescription("Enable/Disable braking", null, new ConfigurationManagerAttributes { Order = order }));
+            //order--;
+
+            //mBrakesStrength = Config.Bind(BrakesStrengthDef, 1f, new ConfigDescription("The intensity of the brakes", null, new ConfigurationManagerAttributes { Order = order }));
+            //order--;
+
+            mFlip = Config.Bind(FlipDef, new KeyboardShortcut(KeyCode.S), new ConfigDescription("Makes the car flip", null, new ConfigurationManagerAttributes { Order = order }));
             order--;
 
-            Config.Bind(JumpStrengthDef, 1f, new ConfigDescription("How strong a jump is", null, new ConfigurationManagerAttributes { Order = order }));
-            mJumpStrength = (ConfigEntry<float>)Config[JumpStrengthDef];
+            mJumpEnabled = Config.Bind(JumpEnabledDef, true, new ConfigDescription("Enable/Disable jumping", null, new ConfigurationManagerAttributes { Order = order }));
             order--;
 
-            Config.Bind(JumpModeDef, JumpMode.AlwaysUp, new ConfigDescription("What direction the jump will be applied", null, new ConfigurationManagerAttributes { Order = order }));
-            mJumpMode = (ConfigEntry<JumpMode>)Config[JumpModeDef];
+            mAirJump = Config.Bind(AirJumpDef, false, new ConfigDescription("Controls if you can jump mid air", null, new ConfigurationManagerAttributes { Order = order }));
+            order--;
+
+            mJump = Config.Bind(JumpDef, new KeyboardShortcut(KeyCode.W), new ConfigDescription("Makes the car jump", null, new ConfigurationManagerAttributes { Order = order }));
+            order--;
+
+            mJumpStrength = Config.Bind(JumpStrengthDef, 1f, new ConfigDescription("How strong a jump is", null, new ConfigurationManagerAttributes { Order = order }));
+            order--;
+
+            mJumpMode = Config.Bind(JumpModeDef, JumpMode.AlwaysUp, new ConfigDescription("Which direction the jump will be applied", null, new ConfigurationManagerAttributes { Order = order }));
+            order--;
+
+            mTorqueEnabled = Config.Bind(TorqueEnabledDef, true, new ConfigDescription("Enable/Disable Torque", null, new ConfigurationManagerAttributes { Order = order }));
+            order--;
+
+            mTorqueStrength = Config.Bind(TorqueStrengthDef, 1f, new ConfigDescription("How strong the mid air torque is when driving", null, new ConfigurationManagerAttributes { Order = order }));
+            order--;
+
+
+
+            mPhaseControl = Config.Bind(PhaseControlDef, true, new ConfigDescription("If your able to control wich phases start and when they start", null, new ConfigurationManagerAttributes { Order = order }));
+            order--;
+
+            mStartPhase = Config.Bind(StartPhaseDef, new KeyboardShortcut(KeyCode.Q), new ConfigDescription("Starts a phase based on the numbers you type while you press the key", null, new ConfigurationManagerAttributes { Order = order }));
+            order--;
+
+
+
+            mHydroControl = Config.Bind(HydroControlDef, true, new ConfigDescription("If your able to activate hydraulics (One hyrdaulic phase has to exist for this to work)", null, new ConfigurationManagerAttributes { Order = order }));
+            order--;
+
+            mActivateHydro = Config.Bind(ActivateHydroDef, new KeyboardShortcut(KeyCode.E), new ConfigDescription("What button activates all the hydraulics", null, new ConfigurationManagerAttributes { Order = order }));
             order--;
 
 
@@ -135,30 +287,76 @@ namespace ControllerMod
             mEnabled.Value = false;
             onEnableDisable(null, null);
         }
-        
+
         public override string getSettings()
         {
-            return mJumpStrength.Value + "|" + mJumpMode.Value;
+            SettingsObj settings = new SettingsObj();
+
+            settings.version = SettingsVersion;
+
+            settings.VehicleControl = mVehicleControl.Value;
+            settings.JumpEnabled = mJumpEnabled.Value;
+            settings.MidAirJump = mAirJump.Value;
+            settings.JumpStrength = mJumpStrength.Value;
+            settings.JumpMode = mJumpMode.Value;
+            settings.TorqueEnabled = mTorqueEnabled.Value;
+            settings.TorqueStrength = mTorqueStrength.Value;
+
+            settings.PhaseControl = mPhaseControl.Value;
+
+            settings.HydroControl = mHydroControl.Value;
+
+            string json = JsonUtility.ToJson(settings);
+
+            return json;
         }
 
         public override void setSettings(string st)
         {
-            string[] Settings = st.Split('|');
-            if (Settings.Length > 0 && float.TryParse(Settings[0], out float fl))
+            try
             {
-                mJumpStrength.Value = fl;
+                SettingsObj settings = JsonUtility.FromJson<SettingsObj>(st);
+
+                int version = settings.version;
+
+                if (version > SettingsVersion)
+                {
+                    PopUpWarning.Display("Layout was created with newer version of vehicle controller mod!\nSome settings may be lost!");
+                }
+
+                mVehicleControl.Value = settings.VehicleControl;
+
+                mVehicleControl.Value = settings.VehicleControl;
+                mJumpEnabled.Value = settings.JumpEnabled;
+                mAirJump.Value = settings.MidAirJump;
+                mJumpStrength.Value = settings.JumpStrength;
+                mJumpMode.Value = settings.JumpMode;
+                mTorqueEnabled.Value = settings.TorqueEnabled;
+                mTorqueStrength.Value = settings.TorqueStrength;
+
+                mPhaseControl.Value = settings.PhaseControl;
+
+                mHydroControl.Value = settings.HydroControl;
             }
-            else
+            catch
             {
-                Debug.Log("Something went wrong while trying to set setting JumpStrength for Vehicle Controller Mod");
-            }
-            if (Settings.Length > 1 && Enum.TryParse(Settings[1], out JumpMode jm))
-            {
-                mJumpMode.Value = jm;
-            }
-            else
-            {
-                Debug.Log("Something went wrong while trying to set setting JumpMode for Vehicle Controller Mod");
+                string[] Settings = st.Split('|');
+                if (Settings.Length > 0 && float.TryParse(Settings[0], out float fl))
+                {
+                    mJumpStrength.Value = fl;
+                }
+                else
+                {
+                    Debug.Log("Something went wrong while trying to set setting JumpStrength for Vehicle Controller Mod");
+                }
+                if (Settings.Length > 1 && Enum.TryParse(Settings[1], out JumpMode jm))
+                {
+                    mJumpMode.Value = jm;
+                }
+                else
+                {
+                    Debug.Log("Something went wrong while trying to set setting JumpMode for Vehicle Controller Mod");
+                }
             }
         }
 
@@ -168,87 +366,200 @@ namespace ControllerMod
         }
 
 
-        [HarmonyPatch(typeof(Main), "Update")]
-        private static class patchUpdate
+        private void Update()
         {
-            private static void Postfix()
+            if (!CheckForCheating()) return;
+
+            if (GameStateManager.GetState() == GameState.SIM)
             {
-                if (!instance.CheckForCheating()) return;
-
-                
-
-                if (instance.mChangeTarget.Value.IsDown() && GameStateManager.GetState() == GameState.SIM)
+                if (mVehicleControl.Value && mChangeTarget.Value.IsDown())
                 {
-                    instance.InUpdate = true;
+                    InUpdate = true;
 
-                    instance.TargetIndex++;
-                    if (instance.TargetIndex > Vehicles.m_Vehicles.Count) instance.TargetIndex = 0;
-
-                    if (instance.Target != null)
+                    if (Target)
                     {
-                        instance.Target.SetPhysicsVehicleTargetSpeed(0f, true);
+                        //Target.Physics.brakingForceMultiplier = TargetBrakingMultiplier;
+                        Target.SetPhysicsVehicleTargetSpeed(0f, true);
                     }
 
-                    instance.Target = null;
-                    instance.TargetBodies = null;
-                    if (instance.TargetIndex != 0)
+                    TargetIndex++;
+                    if (TargetIndex > Vehicles.m_Vehicles.Count) TargetIndex = 0;
+
+                    Target = null;
+                    TargetBodies = null;
+                    if (TargetIndex != 0)
                     {
-                        instance.Target = Vehicles.m_Vehicles[instance.TargetIndex - 1];
-                        if (instance.Target != null)
+                        Target = Vehicles.m_Vehicles[TargetIndex - 1];
+                        if (Target)
                         {
-                            instance.Target.SetPhysicsVehicleTargetSpeed(0f, true);
-                            instance.LoadBodies = true;
-                            instance.Target.Physics.Execute();
+                            Target.SetPhysicsVehicleTargetSpeed(0f, true);
+                            LoadBodies = true;
+                            Target.Physics.Execute();
+                            //TargetBrakingMultiplier = Target.Physics.brakingForceMultiplier;
                         }
                     }
                 }
 
-                instance.InUpdate = true;
+                InUpdate = true;
 
-                if (instance.mJump.Value.IsDown() && GameStateManager.GetState() == GameState.SIM && instance.Target)
+                if (mVehicleControl.Value && Target && Target.Physics)
                 {
-                    instance.AddJump = true;
-                    instance.LoadBodies = true;
-                    instance.Target.Physics.Execute();
-                }
+                    LoadBodies = true;
+                    Target.Physics.Execute();
 
-                if (instance.mFlip.Value.IsDown() && GameStateManager.GetState() == GameState.SIM)
-                {
-                    if (instance.Target) instance.Target.PhysicsVehicleFlip();
-                }
+                    if (mJumpEnabled.Value && mJump.Value.IsDown()) AddJump = true;
 
-
-                if (instance.DriveDown != (instance.mDrive.Value.IsPressed() && !instance.mDriveBack.Value.IsPressed()) && GameStateManager.GetState() == GameState.SIM)
-                {
-                    if (instance.Target)
+                    if (mFlip.Value.IsDown())
                     {
-                        if (instance.mDrive.Value.IsPressed()) instance.Target.SetPhysicsVehicleTargetSpeed(instance.Target.m_TargetSpeed, true);
-                        else instance.Target.SetPhysicsVehicleTargetSpeed(0f, true);
+                        Target.PhysicsVehicleFlip();
+                        if (FlippedVehicles.Contains(Target)) FlippedVehicles.Remove(Target);
+                        else FlippedVehicles.Add(Target);
+                    }
+
+                    if (DriveDown != (mDrive.Value.IsPressed() && !mDriveBack.Value.IsPressed()))
+                    {
+                        if (mDriveType.Value == DriveType.WithOrientation)
+                        {
+                            if (mDrive.Value.IsPressed()) Target.SetPhysicsVehicleTargetSpeed(Target.m_TargetSpeed, true);
+                            else Target.SetPhysicsVehicleTargetSpeed(0f, true);
+                        }
+                        else
+                        {
+                            if (mDrive.Value.IsPressed())
+                            {
+                                int flipmod;
+                                if (FlippedVehicles.Contains(Target)) flipmod = -1;
+                                else flipmod = 1;
+                                Target.SetPhysicsVehicleTargetSpeed(Target.m_TargetSpeed * flipmod, true);
+                            }
+                            else Target.SetPhysicsVehicleTargetSpeed(0f, true);
+                        }
+                    }
+                    DriveDown = mDrive.Value.IsPressed() && !mDriveBack.Value.IsPressed();
+
+                    if (DriveBackDown != (mDriveBack.Value.IsPressed() && !mDrive.Value.IsPressed()))
+                    {
+                        if (mDriveType.Value == DriveType.WithOrientation)
+                        {
+                            if (mDriveBack.Value.IsPressed()) Target.SetPhysicsVehicleTargetSpeed(-Target.m_TargetSpeed, true);
+                            else Target.SetPhysicsVehicleTargetSpeed(0f, true);
+                        }
+                        else
+                        {
+                            if (mDriveBack.Value.IsPressed())
+                            {
+                                int flipmod;
+                                if (FlippedVehicles.Contains(Target)) flipmod = 1;
+                                else flipmod = -1;
+                                Target.SetPhysicsVehicleTargetSpeed(Target.m_TargetSpeed * flipmod, true);
+                            }
+                            else Target.SetPhysicsVehicleTargetSpeed(0f, true);
+                        }
+                    }
+                    DriveBackDown = mDriveBack.Value.IsPressed() && !mDrive.Value.IsPressed();
+
+                    /*
+                    if (BrakesDown != (mBrakes.Value.IsPressed() && !DriveDown && !DriveBackDown && mBrakesEnabled.Value))
+                    {
+                        if (BrakesDown)
+                        {
+                            Target.Physics.idleOnDownhill = false;
+                            Target.Physics.brakingForceMultiplier = mBrakesStrength.Value;
+                        }
+                        else
+                        {
+                            Target.Physics.brakingForceMultiplier = TargetBrakingMultiplier;
+                        }
+                    }
+                    BrakesDown = mBrakes.Value.IsPressed() && !DriveDown && !DriveBackDown && mBrakesEnabled.Value;
+                    */
+                }
+
+                if (mPhaseControl.Value)
+                {
+                    if (mStartPhase.Value.IsPressed())
+                    {
+                        if (!PhaseTyping) SelectedPhase = 0;
+
+                        for (int i = 0; i < 10; i++)
+                        {
+                            KeyCode key = (KeyCode)(48 + i);
+                            if (Input.GetKeyDown(key))
+                            {
+                                SelectedPhase *= 10;
+                                SelectedPhase += i;
+                            }
+                        }
+                        GameUI.m_Instance.m_TopBar.m_MessageTopCenter.ShowMessage(string.Format("Phase: {0} ({1})", SelectedPhase, FormatStageLabel(SelectedPhase - 1)), 0.1f);
+                        PhaseTyping = true;
+                    }
+                    else if (PhaseTyping)
+                    {
+                        int phaseNum = SelectedPhase;
+                        SelectedPhase--;
+                        if (SelectedPhase >= 0)
+                        {
+                            if (EventTimelines.m_Timelines.Count > 0)
+                            {
+                                for (int i = 0; i < EventTimelines.m_Timelines.Count; i++)
+                                {
+                                    EventTimeline timeline = EventTimelines.m_Timelines[i];
+                                    if (SelectedPhase < timeline.m_Stages.Count)
+                                    {
+                                        for (int j = 0; j < timeline.m_Stages[SelectedPhase].m_Units.Count; j++)
+                                        {
+                                            EventStage stage = timeline.m_Stages[SelectedPhase];
+                                            EventUnit unit = stage.m_Units[j];
+                                            switch (unit.m_Type)
+                                            {
+                                                case EventUnitType.HYDRAULICS_PHASE:
+                                                case EventUnitType.VEHICLE:
+                                                case EventUnitType.VEHICLE_RESTART_PHASE:
+                                                    unit.StartSimulation();
+                                                    break;
+                                                case EventUnitType.ZED_AXIS_VEHICLE:
+                                                    ZedAxisVehicle boat = unit.GetZedAxisVehicle();
+                                                    boat.StopLoopSoundImmediate();
+                                                    boat.EndSimulation();
+                                                    boat.EnablePhysics();
+                                                    boat.StartSimulation();
+                                                    break;
+                                                default:
+                                                    break;
+                                            }
+                                            GameUI.m_Instance.m_TopBar.m_MessageTopCenter.ShowMessage(string.Format("Activated phase: {0} ({1})", phaseNum, FormatStageLabel(stage.m_AbsoluteStageIndex)), 3);
+                                        }
+                                        break;
+                                    }
+                                    else SelectedPhase -= timeline.m_Stages.Count;
+                                }
+                            }
+                        }
+
+                        SelectedPhase = 0;
+                        PhaseTyping = false;
                     }
                 }
-                instance.DriveDown = instance.mDrive.Value.IsPressed() && !instance.mDriveBack.Value.IsPressed();
 
-
-                if (instance.DriveBackDown != (instance.mDriveBack.Value.IsPressed() && !instance.mDrive.Value.IsPressed()) && GameStateManager.GetState() == GameState.SIM)
+                if (mHydroControl.Value)
                 {
-                    if (instance.Target)
+                    if (mActivateHydro.Value.IsDown())
                     {
-                        if (instance.mDriveBack.Value.IsPressed()) instance.Target.SetPhysicsVehicleTargetSpeed(instance.Target.m_TargetSpeed * -1f, true);
-                        else instance.Target.SetPhysicsVehicleTargetSpeed(0f, true);
+                        PolyPhysics.HydraulicController.instance.Activate();
                     }
                 }
-                instance.DriveBackDown = instance.mDriveBack.Value.IsPressed() && !instance.mDrive.Value.IsPressed();
-
-                instance.InUpdate = false;
             }
+
+            InUpdate = false;
         }
+
 
         [HarmonyPatch(typeof(Vehicle), "SetPhysicsVehicleTargetSpeed")]
         private static class patchSetTargetSpeed
         {
             private static bool Prefix(Vehicle __instance, float speed)
             {
-                if (!instance.CheckForCheating()) return true;
+                if (!instance.CheckForCheating() || !instance.mVehicleControl.Value) return true;
 
 
                 if (__instance != instance.Target)
@@ -269,7 +580,7 @@ namespace ControllerMod
         {
             private static bool Prefix(Vehicle __instance)
             {
-                if (!instance.CheckForCheating()) return true;
+                if (!instance.CheckForCheating() || !instance.mVehicleControl.Value) return true;
 
 
                 if (__instance != instance.Target || !instance.InUpdate)
@@ -286,7 +597,7 @@ namespace ControllerMod
         {
             private static void Postfix(PolyPhysics.Vehicle __instance, PolyPhysics.Rigidbody[] ___allBodies)
             {
-                if (!instance.CheckForCheating()) return;
+                if (!instance.CheckForCheating() || !instance.mVehicleControl.Value) return;
 
                 __instance.targetVelocity = 0f;
             }
@@ -315,22 +626,31 @@ namespace ControllerMod
             private static void Postfix(FastList<Motion> motionsAL, List<PolyPhysics.Rigidbody> bodies)
             {
                 if (!instance.CheckForCheating()) return;
-                
+
                 instance.AllBodies = bodies;
             }
         }
 
-        [HarmonyPatch(typeof(GameStateManager), "ChangeState")]
-        private static class patchChangeState
+        [HarmonyPatch(typeof(PolyPhysics.Collide), "DetectCollisions")]
+        private static class patchDetectCollisions
         {
-            private static void Postfix(GameState state)
+            private static void Postfix(PolyPhysics.WorldCollisionOutput output)
             {
                 if (!instance.CheckForCheating()) return;
 
-                if (state == GameState.SIM && instance.Target)
-                {
-                    
-                }
+                instance.CollisionsOutput = output;
+            }
+        }
+
+        [HarmonyPatch(typeof(PolyPhysics.PersistentCollisionCache), "UpdateCachesFromCollisionInfos_Rigidbodies")]
+        private static class patchUpdateCashes
+        {
+            private static void Postfix(FastList<PolyPhysics.CollisionInfo> collisionInfos, FastList<Poly.Physics.CollisionEvent> collisionEvents)
+            {
+                if (!instance.CheckForCheating()) return;
+
+                instance.infos = collisionInfos;
+                instance.events = collisionEvents;
             }
         }
 
@@ -339,35 +659,122 @@ namespace ControllerMod
         {
             private static void Postfix(Motion[] motionsPtr, float deltaTime)
             {
-                if (!instance.CheckForCheating()) return;
+                if (!instance.CheckForCheating() || !instance.mVehicleControl.Value) return;
 
                 instance.InUpdate = true;
 
-                if (instance.AddJump)
+                if (instance.TargetBodies != null && motionsPtr != null && instance.AllBodies != null
+                    && instance.TargetChassis != null && instance.TargetChassis.Length > 0 && instance.TargetChassis[0] != null)
                 {
-                    if (instance.TargetBodies != null && motionsPtr != null && instance.AllBodies != null)
+                    double angle = instance.TargetChassis[0].transform.rotation.eulerAngles.z * (Math.PI / 180);
+                    Vec2 Jump = new Vec2(0, 0);
+                    if (instance.mJumpMode.Value == JumpMode.AlwaysUp)
                     {
-                        double angle = instance.TargetChassis[0].transform.rotation.eulerAngles.z * (Math.PI / 180);
-                        Vec2 Jump = new Vec2(0, 0);
-                        if (instance.mJumpMode.Value == JumpMode.AlwaysUp)
-                        {
-                            Jump = new Vec2(0f, instance.mJumpStrength.Value / 100 * 4);
-                        }
-                        else if (instance.mJumpMode.Value == JumpMode.Directional)
-                        {
-                            Jump = new Vec2(instance.mJumpStrength.Value * Mathf.Sin((float)angle) * -1, instance.mJumpStrength.Value * Mathf.Cos((float)angle)) / 100 * 4;
-                        }
+                        Jump = new Vec2(0f, instance.mJumpStrength.Value / 100 * 4);
+                    }
+                    else if (instance.mJumpMode.Value == JumpMode.Directional)
+                    {
+                        Jump = new Vec2(
+                            instance.mJumpStrength.Value * Mathf.Sin((float)angle) * -1,
+                            instance.mJumpStrength.Value * Mathf.Cos((float)angle)
+                            ) / 100 * 4;
+                    }
 
-                        foreach (PolyPhysics.Rigidbody body in instance.TargetBodies)
-                        {
-                            int Index = instance.AllBodies.IndexOf(body);
+                    bool inAir = true;
 
-                            if (Index >= 0 && Index < motionsPtr.Count())
+                    if (instance.mTorqueEnabled.Value || instance.mJumpEnabled.Value)
+                    {
+
+                        List<int> eventIndexs = new List<int>();
+                        foreach (PolyPhysics.CollisionInfo info in instance.infos.array)
+                        {
+                            if (info.sumVelImpulses_InFrame != 0f || info.sumFrictionImpulses_InFrame != 0f)
                             {
-                                motionsPtr[Index].linVel += Jump;
+                                if (info.collisionEventIdx >= 0) eventIndexs.Add(info.collisionEventIdx);
+                            }
+                        }
+
+                        foreach (int index in eventIndexs)
+                        {
+                            if (index < instance.events.Count)
+                            {
+                                Poly.Physics.CollisionEvent collisionEvent = instance.events[index];
+
+                                Component compA;
+                                Component compB;
+                                try
+                                {
+                                    compA = collisionEvent.a.Value.GetUnityComponent();
+                                }
+                                catch { compA = null; }
+                                try
+                                {
+                                    compB = collisionEvent.b.Value.GetUnityComponent();
+                                }
+                                catch { compB = null; }
+
+                                foreach (PolyPhysics.Rigidbody body in instance.TargetBodies)
+                                {
+                                    if (body.gameObject && body.name.ToLower().Contains("wheel"))
+                                    {
+                                        //float lastDis = instance.LastDistance;
+                                        //float evenLastDis = instance.EvenMoreLastDistance;
+
+                                        if (compA && compA.gameObject && body.gameObject == compA.gameObject)
+                                        {
+                                            float dis = collisionEvent.point0.distance;
+                                            if (dis < 0.01f) // && !(lastDis == dis && lastDis == evenLastDis)
+                                            {
+                                                //instance.LastDistance = dis;
+                                                //instance.EvenMoreLastDistance = lastDis;
+                                                inAir = false;
+                                                break;
+                                            }
+                                        }
+                                        else if (compB && compB.gameObject && body.gameObject == compB.gameObject)
+                                        {
+                                            float dis = collisionEvent.point0.distance;
+                                            if (dis < 0.01f) // && !(lastDis == dis && lastDis == evenLastDis)
+                                            {
+                                                //instance.LastDistance = dis;
+                                                //instance.EvenMoreLastDistance = lastDis;
+                                                inAir = false;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
+
+
+
+                    foreach (PolyPhysics.Rigidbody body in instance.TargetBodies)
+                    {
+                        int index = instance.AllBodies.IndexOf(body);
+
+                        if (index >= 0 && index < motionsPtr.Count())
+                        {
+                            ref Motion motion = ref motionsPtr[index];
+
+                            if ((!inAir || instance.mAirJump.Value) && instance.AddJump && instance.mJumpEnabled.Value)
+                            {
+                                motion.linVel += Jump;
+                            }
+
+                            if (inAir && instance.mTorqueEnabled.Value)
+                            {
+                                float vel = 0;
+                                float accVel = instance.mTorqueStrength.Value / 80000 * 4;
+                                if (instance.mDrive.Value.IsPressed() && !instance.mDriveBack.Value.IsPressed()) vel = accVel;
+                                else if (instance.mDriveBack.Value.IsPressed() && !instance.mDrive.Value.IsPressed()) vel = -accVel;
+
+                                if (vel != 0f) motion.angVel += vel;
+                            }
+                        }
+                    }
+
                     instance.AddJump = false;
                 }
 
@@ -382,9 +789,35 @@ namespace ControllerMod
             {
                 if (!instance.CheckForCheating() || GameStateManager.GetState() != GameState.SIM) return;
                 if (instance.TargetIndex > Vehicles.m_Vehicles.Count) instance.TargetIndex = 0;
+                instance.FlippedVehicles.Clear();
+                foreach (Vehicle vehicle in Vehicles.m_Vehicles)
+                {
+                    if (vehicle.m_Flipped) instance.FlippedVehicles.Add(vehicle);
+                }
             }
         }
 
+
+
+        [HarmonyPatch(typeof(EventStage), "StartSimulation")]
+        private static class patchEventStage
+        {
+            private static bool Prefix()
+            {
+                if (!instance.CheckForCheating() || !instance.mPhaseControl.Value) return true;
+                else return false;
+            }
+        }
+
+        public string FormatStageLabel(int stageNumber)
+        {
+            if (stageNumber < 0) return "Out Of Bounds!";
+            int num = stageNumber / 26;
+            stageNumber %= 26;
+            if (num == 0) return StageLabelLookupTable[stageNumber];
+            else if (num == 1) return StageLabelLookupTable[num - 1] + StageLabelLookupTable[stageNumber];
+            else return "Out Of Bounds!";
+        }
 
 
         [HarmonyPatch(typeof(KeyboardShortcut), "ModifierKeyTest")]
@@ -399,6 +832,24 @@ namespace ControllerMod
         }
     }
 
+
+    [Serializable]
+    public class SettingsObj
+    {
+        public int version = 0;
+
+        public bool VehicleControl = true;
+        public bool JumpEnabled = true;
+        public bool MidAirJump = false;
+        public float JumpStrength = 1f;
+        public ControllerMain.JumpMode JumpMode = ControllerMain.JumpMode.AlwaysUp;
+        public bool TorqueEnabled = true;
+        public float TorqueStrength = 1f;
+
+        public bool PhaseControl = false;
+
+        public bool HydroControl = false;
+    }
 
 
 

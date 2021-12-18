@@ -27,6 +27,9 @@
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Poly Bridge 2\Poly Bridge 2_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.JSONSerializeModule">
+      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Poly Bridge 2\Poly Bridge 2_Data\Managed\UnityEngine.JSONSerializeModule.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>
