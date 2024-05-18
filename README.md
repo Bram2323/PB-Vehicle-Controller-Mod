@@ -1,10 +1,10 @@
 # VehicleControllerMod
 What it does: It lets you control vehicles
 
-Game Version: 1.24+
+Game Version: 1.63+
 
 Dependencies: 
-- PolyTech Framework 0.9.3+
+- PolyTech Framework 0.9.7+
 
 To install: Place this .dll in the ...\Poly Bridge 2\BepInEx\plugins folder
 

@@ -24,7 +24,7 @@ namespace ControllerMod
 
         public const string pluginName = "Vehicle Controller Mod";
 
-        public const string pluginVerson = "1.1.0";
+        public const string pluginVerson = "1.1.1";
 
 
         public ConfigDefinition modEnableDef = new ConfigDefinition(pluginName, "Enable/Disable Mod");
