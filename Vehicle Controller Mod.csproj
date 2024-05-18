@@ -3,32 +3,36 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <RootNamespace>Vehicle_Controller_Mod</RootNamespace>
+	<GamePath>D:\SteamLibrary\steamapps\common\Poly Bridge 2</GamePath>
   </PropertyGroup>
 
   <ItemGroup>
     <Reference Include="0Harmony">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Poly Bridge 2\BepInEx\core\0Harmony.dll</HintPath>
+      <HintPath>$(GamePath)\BepInEx\core\0Harmony.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Poly Bridge 2\Poly Bridge 2_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(GamePath)\Poly Bridge 2_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="BepInEx">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Poly Bridge 2\BepInEx\core\BepInEx.dll</HintPath>
+      <HintPath>$(GamePath)\BepInEx\core\BepInEx.dll</HintPath>
     </Reference>
     <Reference Include="BepInEx.Harmony">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Poly Bridge 2\BepInEx\core\BepInEx.Harmony.dll</HintPath>
+      <HintPath>$(GamePath)\BepInEx\core\BepInEx.Harmony.dll</HintPath>
     </Reference>
     <Reference Include="PolyTechFramework">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Poly Bridge 2\BepInEx\plugins\PolyTechFramework.dll</HintPath>
+      <HintPath>$(GamePath)\BepInEx\plugins\PolyTechFramework.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Poly Bridge 2\Poly Bridge 2_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>$(GamePath)\Poly Bridge 2_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Poly Bridge 2\Poly Bridge 2_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(GamePath)\Poly Bridge 2_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(GamePath)\Poly Bridge 2_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.JSONSerializeModule">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Poly Bridge 2\Poly Bridge 2_Data\Managed\UnityEngine.JSONSerializeModule.dll</HintPath>
+      <HintPath>$(GamePath)\Poly Bridge 2_Data\Managed\UnityEngine.JSONSerializeModule.dll</HintPath>
     </Reference>
   </ItemGroup>
 
